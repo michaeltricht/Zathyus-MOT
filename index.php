@@ -4,7 +4,7 @@
 */
 <?php
 	// Include necessities.
-	include('config/database.php');
+	include('config.php');
 	include('lib/MysqliDb.php');
 
 	// Disable error reporting.
@@ -13,53 +13,56 @@
 	}
 
 	// Setup MySQL connection.
-	$mysqli = new Mysqlidb($config['database']['host'], $config['database']['username'], $config['database']['password'], $config['datbase']['database']);
+	$mysqli = new Mysqlidb($config['database']['host'], $config['database']['username'], $config['database']['password'], $config['database']['database']);
 
 	// UNIX time minus 24 hours.
 	$limitTime = time() - (60 * 60 * 24);
 
 	// Delete any users that have not been only the past 24 hours.
-	$mysqli->where('date < ' . $timestamp);
+	$mysqli->where('date', $limitTime, '<');
 	$mysqli->delete('users');
 
-	// Lets get started.
+	// Are we not visiting the page directly?
 	if (isset($_GET['url'])) {
 
-		$url = $_GET['URL'];
+		$url = $_GET['url'];
 		// Strip overhead from the URL.
 		if (preg_match("/\?s=/", $url)) {
 			$url = explode("?s=", $url);
-			$url = $_GET['url'][0]."?act=idx";
+			$url = $url[0] . "?act=idx";
 		}
 
 		// Setup variables.
 		$url = $mysqli->escape(strip_tags(trim(urldecode($url))));
 		$user = $mysqli->escape(strip_tags(trim($_GET['user'])));
-		$id = $mysqli->escape($_GET['id']);
-		$type = $mysqli->escape($_GET['type']);
 
+		// We're not a guest but a real user.
 		if ($user == $_GET['user'] && isset($_GET['id'])) {
-			// We're logged into the board.
-			if($id && $user){
 
-				$mysqli->where('user', $user);
-				$mysqli->where('user_id', $id);
-				$mysqli->where('url', $url);
-				$currentUser = $mysqli->getOne('users');
+			// Setup variables.
+			$id = $mysqli->escape($_GET['id']);
+			$type = $mysqli->escape($_GET['type']);
 
-				$data = array(
-					'user_id' => $id,
-					'user' => $user,
-					'url' => $url,
-					'date' => time()
-				);
-				// Is the current visitor in the database?
-				if($mysqli->count == 0){
-					$mysqli->insert('users', $data);
-				} else {
-					$mysqli->where('id', $currentUser['id']);
-					$mysqli->update('users', $data);
-				}
+			// Are we in the database?
+			$mysqli->where('user', $user);
+			$mysqli->where('user_id', $id);
+			$mysqli->where('url', $url);
+			$currentUser = $mysqli->getOne('users');
+
+			// Setup array.
+			$data = array(
+				'user_id' => $id,
+				'user' => $user,
+				'url' => $url,
+				'date' => time()
+			);
+
+			// Is the current visitor in the database?
+			if($mysqli->count == 0){
+				$mysqli->insert('users', $data);
+			} else {
+				$mysqli->where('id', $currentUser['id']);
+				$mysqli->update('users', $data);
 			}
 		}
 
@@ -69,6 +72,7 @@
 		$count = $mysqli->count;
 
 		// Lets start with outputting some javascript.
+		// TODO: Delegate this to a function.
 		// TODO: Put javascript in separate files.
 		// TODO: Not have the entire <td> row in a single line.
 		?>
