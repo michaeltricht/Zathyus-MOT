@@ -35,13 +35,13 @@
 		// Setup variables.
 		$url = $mysqli->escape(strip_tags(trim(urldecode($url))));
 		$user = $mysqli->escape(strip_tags(trim($_GET['user'])));
+		$type = isset($_GET['type']) ? $_GET['type'] : 0;
 
 		// We're not a guest but a real user.
 		if ($user == $_GET['user'] && isset($_GET['id']) && $user != "0" && $_GET['id'] != "0") {
 
 			// Setup variables.
 			$id = $mysqli->escape($_GET['id']);
-			$type = $mysqli->escape($_GET['type']);
 
 			// Are we in the database?
 			$mysqli->where('user', $user);
