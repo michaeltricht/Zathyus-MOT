@@ -37,7 +37,7 @@
 		$user = $mysqli->escape(strip_tags(trim($_GET['user'])));
 
 		// We're not a guest but a real user.
-		if ($user == $_GET['user'] && isset($_GET['id'])) {
+		if ($user == $_GET['user'] && isset($_GET['id']) && $user != "0" && $_GET['id'] != "0") {
 
 			// Setup variables.
 			$id = $mysqli->escape($_GET['id']);
