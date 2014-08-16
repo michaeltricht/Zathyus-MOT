@@ -3,75 +3,108 @@
 *	By www.swordbeta.com, https://github.com/michaeltricht/Zathyus-MOT
 */
 <?php
-	error_reporting(0);
+	// Include necessities.
 	include('config/database.php');
-	//Mysql crap
-	mysql_connect($config['database']['host'], $config['database']['username'], $config['database']['password']);
-	mysql_select_db($config['database']['database']);
-	//Okie, how are we doing?
-	if($_GET['url']){
-	if(preg_match("/\?s=/", $_GET['url'])){
-		$_GET['url'] = explode("?s=", $_GET['url']);
-		$_GET['url'] = $_GET['url'][0]."?act=idx";
+	include('lib/MysqliDb.php');
+
+	// Disable error reporting.
+	if (!$config['debug']) {
+		error_reporting(0);
 	}
-	//parse variables
-		$user = mysql_real_escape_string(strip_tags(trim($_GET['user'])));
-		if($user==$_GET['user']){
-			$id = (int) $_GET['id'];
-			$url = mysql_real_escape_string(strip_tags(trim(urldecode($_GET['url']))));
-			$type = (int) $_GET['type'];
-			//huhz delete dah old shiz
-			if(isset($_GET['timezone']))
-				@date_default_timezone_set(urldecode($_GET['timezone']));
-			else
-				date_default_timezone_set('Europe/Amsterdam');
-			$date = date("j F Y");
-			mysql_query("DELETE FROM `users` WHERE `date` != '$date'");
-			//am I in there already?
-			if($_GET['id'] && $_GET['user']){
-				$q = mysql_query("SELECT * FROM `users` WHERE `user` = '$user' AND `uid` = '$id' AND `url` = '$url'") or die(mysql_error());
-				if(mysql_num_rows($q)==0){
-					mysql_query("INSERT INTO `users`(`uid`, `user`, `url`, `date`) VALUES('$id', '$user', '$url', '$date')")  or die(mysql_error());
+
+	// Setup MySQL connection.
+	$mysqli = new Mysqlidb($config['database']['host'], $config['database']['username'], $config['database']['password'], $config['datbase']['database']);
+
+	// UNIX time minus 24 hours.
+	$limitTime = time() - (60 * 60 * 24);
+
+	// Delete any users that have not been only the past 24 hours.
+	$mysqli->where('date < ' . $timestamp);
+	$mysqli->delete('users');
+
+	// Lets get started.
+	if (isset($_GET['url'])) {
+
+		$url = $_GET['URL'];
+		// Strip overhead from the URL.
+		if (preg_match("/\?s=/", $url)) {
+			$url = explode("?s=", $url);
+			$url = $_GET['url'][0]."?act=idx";
+		}
+
+		// Setup variables.
+		$url = $mysqli->escape(strip_tags(trim(urldecode($url))));
+		$user = $mysqli->escape(strip_tags(trim($_GET['user'])));
+		$id = $mysqli->escape($_GET['id']);
+		$type = $mysqli->escape($_GET['type']);
+
+		if ($user == $_GET['user'] && isset($_GET['id'])) {
+			// We're logged into the board.
+			if($id && $user){
+
+				$mysqli->where('user', $user);
+				$mysqli->where('user_id', $id);
+				$mysqli->where('url', $url);
+				$currentUser = $mysqli->getOne('users');
+
+				$data = array(
+					'user_id' => $id,
+					'user' => $user,
+					'url' => $url,
+					'date' => time()
+				);
+				// Is the current visitor in the database?
+				if($mysqli->count == 0){
+					$mysqli->insert('users', $data);
+				} else {
+					$mysqli->where('id', $currentUser['id']);
+					$mysqli->update('users', $data);
 				}
 			}
-		}else{die();}
-		//k, fine, how many do we have now?
-		$qu = mysql_query("SELECT * FROM `users` WHERE `date` = '$date' AND `url` = '$url'") or die(mysql_error());
-		$count = mysql_num_rows($qu);
-		//alrite, lets do this
-		//LEEEEEEEEEEEEEROOOOOOOOOOOY JEEEEENKIIIINNSSSS
+		}
+
+		// Get the users for this particular board.
+		$mysqli->where('url ', $url);
+		$qu = $mysqli->get('users');
+		$count = $mysqli->count;
+
+		// Lets start with outputting some javascript.
+		// TODO: Put javascript in separate files.
+		// TODO: Not have the entire <td> row in a single line.
 		?>
-if(!img){
+if (!img) {
 var img = "http://209.85.62.23/style_images/1/user.gif";
 }
-if(typeof(mot_breakline) == 'undefined'){
+if (typeof(mot_breakline) == 'undefined') {
 	var breakline = "<br />";
-}else if(mot_breakline == 0){
+} else if(mot_breakline == 0) {
 	var breakline = "<br />";
-}else{
+} else {
 	var breakline = "";
 }
-if(typeof(mot_boldnumber) == 'undefined'){
+if (typeof(mot_boldnumber) == 'undefined') {
 	var open_b = "";
 	var close_b = "";
-}else if(mot_boldnumber == 0){
+} else if (mot_boldnumber == 0) {
 	var open_b = "";
 	var close_b = "";
-}else{
+} else {
 	var open_b = "<b>";
 	var close_b = "</b>";
 }
 		<?
-		if($type==0){
-			$url2 = explode("/index/", $url);
-			$url2 = $url2[0];
+		// Zetaboard.
+		if ($type == 0) {
+			$urlZB = explode("/index/", $url);
+			$urlZB = $urlZB[0];
 		?>
 //Created by Agent Moose, too lazy to figure out jquery
-$("div#stats table.forums tr:contains('Board Statistics')").before("<tr><th colspan='2'>Members Online Today</th></tr><tr><td class='c_mark' id='motMarker'><img src='"+img+"'/></td><td>"+open_b+"<? echo $count; ?>"+close_b+"<?if($count<=1){echo " Member Online today.";}else{echo " Members Online today.";}echo "<br />";?>"+breakline+"<?$re = mysql_query("SELECT * FROM `users` WHERE `url` = '$url'") or die(mysql_error());$x = 1;while($ro = mysql_fetch_array($re)){echo "<a href='".$url2."/profile/".$ro['uid']."'>".$ro['user']."</a>";if($count!=$x){echo ", ";}$x=++$x;} ?></td></tr>")
+$("div#stats table.forums tr:contains('Board Statistics')").before("<tr><th colspan='2'>Members Online Today</th></tr><tr><td class='c_mark' id='motMarker'><img src='"+img+"'/></td><td>"+open_b+"<? echo $count; ?>"+close_b+"<?if($count<=1){echo " Member Online today.";}else{echo " Members Online today.";}echo "<br />";?>"+breakline+"<?$x = 1;foreach($qu as $row){echo "<a href='".$urlZB."/profile/".$row['user_id']."'>".$row['user']."</a>";if($count!=$x){echo ", ";}$x=++$x;} ?></td></tr>")
 		<?
-		}else{
-			$url2 = explode("/index.php", $url);
-			$url2 = $url2[0];
+		} else {
+			// Invisionfree.
+			$urlIF = explode("/index.php", $url);
+			$urlIF = $urlIF[0];
 		?>
 c = document.getElementsByTagName("table");
 for(x=0;x<c.length;x++){
@@ -83,7 +116,7 @@ for(x=0;x<c.length;x++){
 		h = c[x].getElementsByTagName("tr")[1].cloneNode(true);
 		tr.parentNode.insertBefore(h,tr);
 		c[x].getElementsByTagName("td")[4].innerHTML = "<img src='"+img+"' alt='' />";
-		c[x].getElementsByTagName("td")[5].innerHTML = open_b+"<?=$count;?>"+close_b+"<? if($count<=1){echo " Member Online today.";}else{echo " Members Online today.";}echo "<br />";?>"+breakline+"<?$re = mysql_query("SELECT * FROM `users` WHERE `url` = '$url'") or die(mysql_error());$x = 1;while($ro = mysql_fetch_array($re)){echo "<a href='".$url2."/index.php?showuser=".$ro['uid']."'>".$ro['user']."</a>";if($count!=$x){echo ", ";}$x=++$x;} ?>";
+		c[x].getElementsByTagName("td")[5].innerHTML = open_b+"<?=$count;?>"+close_b+"<? if($count<=1){echo " Member Online today.";}else{echo " Members Online today.";}echo "<br />";?>"+breakline+"<?$x = 1;foreach($qu as $row){echo "<a href='".$urlIF."/index.php?showuser=".$row['user_id']."'>".$row['user']."</a>";if($count!=$x){echo ", ";}$x=++$x;} ?>";
 	}
 }
 		<?
