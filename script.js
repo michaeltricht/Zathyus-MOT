@@ -17,6 +17,7 @@ var a = document.getElementsByTagName("a");
 for(x=0;x<a.length;x++) {
 if (a[x].href=="http://www.invisionboard.com/") {
 		type = 1;
+		return;
 	}
 }
 user = 0;
