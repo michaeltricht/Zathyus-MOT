@@ -15,7 +15,7 @@ var mot_boldnumber = 0;
 var type = 0; 
 var a = document.getElementsByTagName("a");
 for(x=0;x<a.length;x++) {
-if (a[x].href=="http://www.zIFBoards.com/") {
+if (a[x].href=="http://www.invisionboard.com") {
 		type = 1;
 	}
 }
